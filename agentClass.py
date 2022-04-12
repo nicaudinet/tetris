@@ -28,9 +28,10 @@ class TQAgent:
         # 'len(gameboard.tiles)' number of different tiles
         # 'self.episode_count' the total number of episodes in the training
 
-        self.state = 0
+        self.state = 0 # Binary encoding of the game board
+        self.action = (0,0) # Tuple of (tile_position, tile_orientation)
         self.reward_tots = np.zeros(self.episode_count)
-        self.qtable = { "bar": [], "diag": [], "L": [], "box": [] }
+        self.qtable = [ {} for i in range(len(gameboard.tiles)) ]
 
     def fn_load_strategy(self,strategy_file):
         pass
@@ -39,7 +40,6 @@ class TQAgent:
         # parameter strategy_file (used to test how the agent plays)
 
     def fn_read_state(self):
-        pass
         # TO BE COMPLETED BY STUDENT
         # This function should be written by you
         # Instructions:
@@ -67,7 +67,6 @@ class TQAgent:
         self.state = int(binaryString, base=2)
 
     def fn_select_action(self):
-        pass
         # TO BE COMPLETED BY STUDENT
         # This function should be written by you
         # Instructions:
@@ -89,6 +88,28 @@ class TQAgent:
         # rotations)
         # The function returns 1 if the action is not valid and 0 otherwise
         # You can use this function to map out which actions are valid or not
+
+        def random_action(tile_type):
+            # Random rotation from the available tile set
+            tile_orientation = random.choice(self.gameboard.tiles[tile_type])
+            # Random selection of position from available positions
+            # The | tile has 4, everyone else has 3
+            tile_position = random.randint(0, 5-len(tile_orientation))
+            return (tile_position, tile_orientation)
+
+        tile_type = self.gameboard.cur_tile_type
+        if random.random() < self.epsilon:
+            # Choose random action
+            self.action = random_action(tile_type)
+        else:
+            # Choose best action from qtable
+            if self.state in self.qtable[tile_type]:
+                # Choose best action from qtable if state was seen before
+                actions = self.qtable[tile_type][self.state]
+                self.action = max(actions, key=actions.get)
+            else:
+                # Choose random action if state not seen before
+                self.action = random_action(tile_type)
     
     def fn_reinforce(self,old_state,reward):
         pass
