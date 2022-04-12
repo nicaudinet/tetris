@@ -28,6 +28,9 @@ class TQAgent:
         # 'len(gameboard.tiles)' number of different tiles
         # 'self.episode_count' the total number of episodes in the training
 
+        self.boardstate = np.zeros((gameboard.N_row, gameboard.N_col))
+        self.reward_tots = np.zeros(self.episode_count)
+
     def fn_load_strategy(self,strategy_file):
         pass
         # TO BE COMPLETED BY STUDENT
@@ -126,6 +129,7 @@ class TQAgent:
             self.fn_read_state()
             # Update the Q-table using the old state and the reward (the new
             # state and the taken action should be stored as attributes in self)
+            old_state = 0
             self.fn_reinforce(old_state,reward)
 
 
@@ -236,7 +240,8 @@ class TDQNAgent:
         if self.gameboard.gameover:
             self.episode+=1
             if self.episode%100==0:
-                print('episode '+str(self.episode)+'/'+str(self.episode_count)+' (reward: ',str(np.sum(self.reward_tots[range(self.episode-100,self.episode)])),')')
+                reward = np.sum(self.reward_tots[range(self.episode-100,self.episode)])
+                print('episode '+str(self.episode)+'/'+str(self.episode_count)+' (reward: ',str(reward),')')
             if self.episode%1000==0:
                 saveEpisodes=[1000,2000,5000,10000,20000,50000,100000,200000,500000,1000000];
                 if self.episode in saveEpisodes:
