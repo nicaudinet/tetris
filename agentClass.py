@@ -28,8 +28,9 @@ class TQAgent:
         # 'len(gameboard.tiles)' number of different tiles
         # 'self.episode_count' the total number of episodes in the training
 
-        self.boardstate = np.zeros((gameboard.N_row, gameboard.N_col))
+        self.state = 0
         self.reward_tots = np.zeros(self.episode_count)
+        self.qtable = { "bar": [], "diag": [], "L": [], "box": [] }
 
     def fn_load_strategy(self,strategy_file):
         pass
@@ -54,6 +55,16 @@ class TQAgent:
         # 'self.gameboard.cur_tile_type' identifier of the current tile that
         # should be placed on the game board (integer between 0 and
         # len(self.gameboard.tiles))
+
+        # Encode the board state into a binary number
+        binaryString = ''
+        for r in range(self.gameboard.N_row):
+            for c in range(self.gameboard.N_col):
+                if self.gameboard.board[r,c] == 1:
+                    binaryString += '1'
+                else:
+                    binaryString += '0'
+        self.state = int(binaryString, base=2)
 
     def fn_select_action(self):
         pass
