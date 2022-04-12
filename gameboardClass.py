@@ -30,7 +30,12 @@ class TGameBoard:
 
             #   x x
             #   x x
-            # Tile structure of tiles[i,j]: The first dimension denotes x value, the length denotes the number of columns taken by the tile. The second dimension consist of pairs giving the y range: first element in the pair is the first row of the tile and the second element second is the last row plus 1 of the tile for the current column
+            # Tile structure of tiles[i,j]: The first dimension denotes x value,
+            # the length denotes the number of columns taken by the tile. The
+            # second dimension consist of pairs giving the y range: first
+            # element in the pair is the first row of the tile and the second
+            # element second is the last row plus 1 of the tile for the current
+            # column
             self.tiles = [
                 [[[0,2]], [[0,1],[0,1]]],
                 [[[0,1],[1,2]], [[1,2],[0,1]]],
@@ -98,7 +103,8 @@ class TGameBoard:
 
     def fn_new_tile(self):
         if self.tile_count<self.max_tile_count:
-            # Choose a random tile with probability stochastic_prob, otherwise take tile from deterministic sequence of tiles
+            # Choose a random tile with probability stochastic_prob, otherwise
+            # take tile from deterministic sequence of tiles
             if random.random()<self.stochastic_prob:
                 self.cur_tile_type=random.randint(0,len(self.tiles)-1)
             else:
