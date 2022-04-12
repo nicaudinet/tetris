@@ -125,7 +125,7 @@ class TGameBoard:
         return 0
 
     def fn_move(self,new_tile_x,new_tile_orientation):
-        if new_tile_orientation>=len(self.tiles[self.cur_tile_type]):
+        if new_tile_orientation >= len(self.tiles[self.cur_tile_type]):
             return 1
         old_tile_x=self.tile_x
         old_tile_orientation=self.tile_orientation

@@ -28,9 +28,19 @@ class TQAgent:
         # 'len(gameboard.tiles)' number of different tiles
         # 'self.episode_count' the total number of episodes in the training
 
-        self.state = 0 # Binary encoding of the game board
-        self.action = (0,0) # Tuple of (tile_position, tile_orientation)
+        # Binary encoding of the game board
+        # newtype State = State Int
+        self.state = 0 
+
+        # newtype TilePosition = TilePosition Int
+        # newtype TileOrientation = TileOrientation Int
+        # data Action = Action TilePosition TileOrientation
+        self.action = (self.gameboard.tile_x, self.gameboard.tile_orientation) 
+
         self.reward_tots = np.zeros(self.episode_count)
+
+        # One qtable per tile
+        # type QTable = Map TileType (Map State (Map Action ExpectedReward))
         self.qtable = [ {} for i in range(len(gameboard.tiles)) ]
 
     def fn_load_strategy(self,strategy_file):
@@ -89,27 +99,37 @@ class TQAgent:
         # The function returns 1 if the action is not valid and 0 otherwise
         # You can use this function to map out which actions are valid or not
 
+        # Choose random action for a particular tile type
+        # random_action :: Int -> (Int,Int)
         def random_action(tile_type):
             # Random rotation from the available tile set
-            tile_orientation = random.choice(self.gameboard.tiles[tile_type])
+            num_orientations = len(self.gameboard.tiles[tile_type])
+            tile_orientation = random.randint(0,num_orientations-1)
             # Random selection of position from available positions
-            # The | tile has 4, everyone else has 3
-            tile_position = random.randint(0, 5-len(tile_orientation))
+            # e.g. in the 2x2 case the | tile has 4 possible x positions while
+            # every other tile only has 3
+            tile_x_len = len(self.gameboard.tiles[tile_type][tile_orientation])
+            num_positions = self.gameboard.N_col+1-tile_x_len
+            tile_position = random.randint(0, num_positions)
             return (tile_position, tile_orientation)
 
+        # Choose best action
         tile_type = self.gameboard.cur_tile_type
         if random.random() < self.epsilon:
-            # Choose random action
             self.action = random_action(tile_type)
         else:
-            # Choose best action from qtable
+            # If the state was seen before choose best action from qtable, else
+            # choose random action
             if self.state in self.qtable[tile_type]:
-                # Choose best action from qtable if state was seen before
                 actions = self.qtable[tile_type][self.state]
                 self.action = max(actions, key=actions.get)
             else:
-                # Choose random action if state not seen before
                 self.action = random_action(tile_type)
+
+        # Execute the action
+        (tile_x, tile_orientation) = self.action
+        self.gameboard.fn_move(tile_x, tile_orientation)
+
     
     def fn_reinforce(self,old_state,reward):
         pass
