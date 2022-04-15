@@ -7,6 +7,7 @@ let
     matplotlib
     pygame
     h5py
+    pytorch
   ];
 
   customPython = pkgs.python38.buildEnv.override {
