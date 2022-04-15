@@ -5,19 +5,7 @@ import h5py
 import copy
 import torch
 
-import debug
-
-
-# Encode the board state into a binary number
-def encode_boardstate(gameboard):
-    binaryString = ''
-    for r in range(gameboard.N_row):
-        for c in range(gameboard.N_col):
-            if gameboard.board[r,c] == 1:
-                binaryString += '1'
-            else:
-                binaryString += '0'
-    return int(binaryString, base=2)
+from util import encode_boardstate
 
 
 class TQAgent:

@@ -20,10 +20,10 @@ human_player=0
 
 # Choose parameter sets for different tasks
 param_set=PARAM_TASK1a
-param_set=PARAM_TASK1b
-param_set=PARAM_TASK1c
+#  param_set=PARAM_TASK1b
+#  param_set=PARAM_TASK1c
 #param_set=PARAM_TASK1d
-param_set=PARAM_TASK2a
+#  param_set=PARAM_TASK2a
 #param_set=PARAM_TASK2b
 
 # Use files to evaluate strategy
@@ -75,7 +75,8 @@ if param_set==PARAM_TASK1a:
     episode_count=1000
 
     if (not human_player) or evaluate_agent:
-        agent=agentClass.TQAgent(alpha,epsilon,episode_count)
+        agent=agentQTable.TQAgent(alpha,epsilon,episode_count)
+
 elif param_set==PARAM_TASK1b:
     N_row=4
     N_col=4
@@ -88,7 +89,8 @@ elif param_set==PARAM_TASK1b:
     episode_count=10000
 
     if (not human_player) or evaluate_agent:
-        agent=agentClass.TQAgent(alpha,epsilon,episode_count)
+        agent=agentQTable.TQAgent(alpha,epsilon,episode_count)
+
 elif param_set==PARAM_TASK1c:
     N_row=4
     N_col=4
@@ -101,7 +103,8 @@ elif param_set==PARAM_TASK1c:
     episode_count=200000
 
     if (not human_player) or evaluate_agent:
-        agent=agentClass.TQAgent(alpha,epsilon,episode_count)
+        agent=agentQTable.TQAgent(alpha,epsilon,episode_count)
+
 elif param_set==PARAM_TASK1d:
     N_row=8
     N_col=8
@@ -114,7 +117,8 @@ elif param_set==PARAM_TASK1d:
     episode_count=200000
 
     if (not human_player) or evaluate_agent:
-        agent=agentClass.TQAgent(alpha,epsilon,episode_count)
+        agent=agentQTable.TQAgent(alpha,epsilon,episode_count)
+
 elif param_set==PARAM_TASK2a:
     N_row=4
     N_col=4
@@ -132,7 +136,8 @@ elif param_set==PARAM_TASK2a:
     sync_target_episode_count=100
 
     if (not human_player) or evaluate_agent:
-        agent=agentClass.TDQNAgent(alpha,epsilon,epsilon_scale,replay_buffer_size,batch_size,sync_target_episode_count,episode_count)
+        agent=agentQNN.TDQNAgent(alpha,epsilon,epsilon_scale,replay_buffer_size,batch_size,sync_target_episode_count,episode_count)
+
 elif param_set==PARAM_TASK2b:
     N_row=8
     N_col=8
@@ -151,7 +156,8 @@ elif param_set==PARAM_TASK2b:
     sync_target_episode_count=100
 
     if (not human_player) or evaluate_agent:
-        agent=agentClass.TDQNAgent(alpha,epsilon,epsilon_scale,replay_buffer_size,batch_size,sync_target_episode_count,episode_count)
+        agent=agentQNN.TDQNAgent(alpha,epsilon,epsilon_scale,replay_buffer_size,batch_size,sync_target_episode_count,episode_count)
+
 else:
     print('Erroneouse param_set. Terminating...')
     raise SystemExit(0)
@@ -161,7 +167,7 @@ else:
 if evaluate_agent:
     agent_evaluate=agent;
 if human_player:
-    agent=agentClass.THumanAgent()
+    agent = agentHuman.THumanAgent()
         
 gameboard=gameboardClass.TGameBoard(N_row,N_col,tile_size,max_tile_count,agent,stochastic_prob)
 
@@ -170,7 +176,7 @@ if evaluate_agent:
     agent_evaluate.fn_init(gameboard)
     agent_evaluate.fn_load_strategy(strategy_file)
 
-if isinstance(gameboard.agent,agentClass.THumanAgent):
+if isinstance(gameboard.agent, agentHuman.THumanAgent):
     # The player is human
 
     # Define some colors for painting
@@ -191,7 +197,7 @@ if isinstance(gameboard.agent,agentClass.THumanAgent):
 
     # Loop until the window is closed
     while True:
-        if isinstance(gameboard.agent,agentClass.THumanAgent):
+        if isinstance(gameboard.agent, agentHuman.THumanAgent):
             gameboard.agent.fn_turn(pygame)
         else:
             pygame.event.pump()

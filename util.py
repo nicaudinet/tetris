@@ -44,3 +44,15 @@ def printQTable(qtable):
                 print("Action: " + str(action) + ", Reward: " + str(tileType[state][action]))
     print("\n--- END QTABLE ---")
 
+# Encode the board state into a binary number
+def encode_boardstate(gameboard):
+    binaryString = ''
+    for r in range(gameboard.N_row):
+        for c in range(gameboard.N_col):
+            if gameboard.board[r,c] == 1:
+                binaryString += '1'
+            else:
+                binaryString += '0'
+    return int(binaryString, base=2)
+
+
