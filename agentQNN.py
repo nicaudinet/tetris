@@ -3,7 +3,68 @@ import random
 import math
 import h5py
 import copy
+
 import torch
+import torch.nn as nn
+from collections import namedtuple, deque
+
+from util import encode_boardstate
+
+Transition = namedtuple('Transition',
+                        ('state', 'action', 'next_state', 'reward'))
+
+
+class ReplayMemory(object):
+
+    def __init__(self, capacity):
+        self.memory = deque([],maxlen=capacity)
+
+    def push(self, *args):
+        """Save a transition"""
+        self.memory.append(Transition(*args))
+
+    def sample(self, batch_size):
+        return random.sample(self.memory, batch_size)
+
+    def __len__(self):
+        return len(self.memory)
+
+
+
+
+class DQN(nn.Module):
+
+    def __init__(self, gameboard):
+
+        super(DQN, self).__init__()
+
+        num_inputs = gameboard.N_row * gameboard.N_col + len(gameboard.tiles)
+        num_outputs = gameboard.N_col * 4
+
+        self.layers = nn.Sequential(
+            nn.Linear(num_inputs, 20),
+            nn.ReLU(),
+            nn.Linear(20, 20),
+            nn.ReLU(),
+            nn.Linear(20, 20),
+            nn.ReLU(),
+            nn.Linear(20, num_outputs)
+        )
+
+    def format_input(self, gameboard):
+        flatten(gameboard.boardstate) + gameboard.cur_tile_type
+        board = np.flatten(gameboard.board)
+        tile_type = np.zeros(len(gameboard.tiles))
+        tile_type[gameboard.cur_tile_type] = 1
+        return torch.tensor(np.append(board, tile_type))
+
+    # Called with either one element to determine next action, or a batch
+    # during optimization. Returns tensor([[left0exp,right0exp]...]).
+    def forward(self, gameboard):
+        return self.layers(format_input(gameboard))
+
+
+
 
 class TDQNAgent:
     # Agent for learning to play tetris using Q-learning
@@ -38,12 +99,13 @@ class TDQNAgent:
         # 'self.replay_buffer_size' the number of quadruplets stored in the
         # experience replay buffer
 
-        self.boardstate = encode_boardstate(self.gameboard)
-        self.tile_type = self.gameboard.cur_tile_type
         self.action = (self.gameboard.tile_x, self.gameboard.tile_orientation) 
         self.reward_tots = np.zeros(self.episode_count)
 
-        # FIXME: Add some NN shit
+        self.exp_buffer = ReplayMemory(self.replay_buffer_size)
+
+        self.nn_calc = DQN(gameboard)
+        self.nn_target = copy.deepcopy(self.nn_calc)
 
 
     def fn_load_strategy(self,strategy_file):
