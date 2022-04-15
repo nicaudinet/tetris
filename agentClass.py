@@ -151,17 +151,17 @@ class TQAgent:
         old_tile_type = old_state[1]
         old_action = self.action
         new_boardstate = self.boardstate
+        new_tile_type = self.tile_type
 
         # Find A = max_a'Q(s',a')
         # Careful! max_a' is the argmax for the best action for _all_ possible
         # tiles, not just the current tile
         A = 0
-        for tile_type in range(len(self.gameboard.tiles)):
-            qtable = self.qtable[tile_type]
-            if new_boardstate in qtable:
-                actions = self.possible_actions(tile_type, new_boardstate)
-                best_action = max(actions, key=actions.get)
-                A = max(A, actions[best_action])
+        qtable = self.qtable[new_tile_type]
+        if new_boardstate in qtable:
+            actions = self.possible_actions(new_tile_type, new_boardstate)
+            best_action = max(actions, key=actions.get)
+            A = actions[best_action]
 
         # Find B = Q(s,a)
         B = 0
