@@ -36,12 +36,14 @@ class TGameBoard:
             # element in the pair is the first row of the tile and the second
             # element second is the last row plus 1 of the tile for the current
             # column
+
             self.tiles = [
                 [[[0,2]], [[0,1],[0,1]]],
                 [[[0,1],[1,2]], [[1,2],[0,1]]],
                 [[[0,2],[1,2]], [[0,2],[0,1]], [[0,1],[0,2]], [[1,2],[0,2]]],
                 [[[0,2],[0,2]]],
             ]
+
         elif self.tile_size==4:
             # Tile set (at most 4 by 4)
             #   x    

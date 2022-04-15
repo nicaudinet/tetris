@@ -240,7 +240,3 @@ else:
     # The player is AI
     while True:
         gameboard.agent.fn_turn()
-
-
-
-
