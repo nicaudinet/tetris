@@ -6,6 +6,19 @@ import copy
 
 import debug
 
+
+# Encode the board state into a binary number
+def encode_boardstate(gameboard):
+    binaryString = ''
+    for r in range(gameboard.N_row):
+        for c in range(gameboard.N_col):
+            if gameboard.board[r,c] == 1:
+                binaryString += '1'
+            else:
+                binaryString += '0'
+    return int(binaryString, base=2)
+
+
 class TQAgent:
     # Agent for learning to play tetris using Q-learning
     def __init__(self,alpha,epsilon,episode_count):
@@ -22,7 +35,7 @@ class TQAgent:
     # attributes of self
     def fn_init(self,gameboard):
         self.gameboard=gameboard
-        self.boardstate = self.encode_boardstate()
+        self.boardstate = encode_boardstate(self.gameboard)
         self.tile_type = self.gameboard.cur_tile_type
         self.action = (self.gameboard.tile_x, self.gameboard.tile_orientation) 
         self.reward_tots = np.zeros(self.episode_count)
@@ -36,18 +49,6 @@ class TQAgent:
         # Here you can load the Q-table (to Q-table of self) from the input
         # parameter strategy_file (used to test how the agent plays)
 
-
-    # Encode the board state into a binary number
-    def encode_boardstate(self):
-        binaryString = ''
-        for r in range(self.gameboard.N_row):
-            for c in range(self.gameboard.N_col):
-                if self.gameboard.board[r,c] == 1:
-                    binaryString += '1'
-                else:
-                    binaryString += '0'
-        return int(binaryString, base=2)
-    
 
     # Return the list of possible actions and their rewards for a given tile type
     def possible_actions(self, tile_type, boardstate):
@@ -78,7 +79,7 @@ class TQAgent:
     # You can for example represent the state as an integer entry in the Q-table
     # This function should not return a value, store the state as an attribute of self
     def fn_read_state(self):
-        self.boardstate = self.encode_boardstate()
+        self.boardstate = encode_boardstate(self.gameboard)
         self.tile_type = self.gameboard.cur_tile_type
 
 
