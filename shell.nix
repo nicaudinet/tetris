@@ -4,6 +4,7 @@ let
 
   pythonLibs = with pkgs.python38Packages; [
     numpy
+    matplotlib
     pygame
     h5py
   ];
