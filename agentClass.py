@@ -113,17 +113,14 @@ class TQAgent:
 
             # Categorize actions
             bestActions = []
-            otherActions = []
             bestAction = max(possible_actions, key=possible_actions.get)
             for action in possible_actions:
                 if possible_actions[action] == possible_actions[bestAction]:
                     bestActions.append(action)
-                else:
-                    otherActions.append(action)
             
             # Choose the next action
             if random.random() < self.epsilon:
-                self.action = random.choice(otherActions)
+                self.action = random.choice(list(possible_actions))
             else:
                 self.action = random.choice(bestActions)
         
