@@ -3,6 +3,7 @@ import random
 import math
 import h5py
 import copy
+import torch
 
 import debug
 
@@ -220,6 +221,13 @@ class TQAgent:
             self.fn_reinforce(old_state, reward)
 
 
+
+
+
+
+
+
+
 class TDQNAgent:
     # Agent for learning to play tetris using Q-learning
     def __init__(self,alpha,epsilon,epsilon_scale,replay_buffer_size,batch_size,sync_target_episode_count,episode_count):
@@ -233,17 +241,16 @@ class TDQNAgent:
         self.episode=0
         self.episode_count=episode_count
 
+
+    # Instructions:
+    # In this function you could set up and initialize the states, actions,
+    # the Q-networks (one for calculating actions and one target network),
+    # experience replay buffer and storage for the rewards
+    # You can use any framework for constructing the networks, for example
+    # pytorch or tensorflow
+    # This function should not return a value, store Q network etc as attributes of self
     def fn_init(self,gameboard):
         self.gameboard=gameboard
-        # TO BE COMPLETED BY STUDENT
-        # This function should be written by you
-        # Instructions:
-        # In this function you could set up and initialize the states, actions,
-        # the Q-networks (one for calculating actions and one target network),
-        # experience replay buffer and storage for the rewards
-        # You can use any framework for constructing the networks, for example
-        # pytorch or tensorflow
-        # This function should not return a value, store Q network etc as attributes of self
 
         # Useful variables: 
         # 'gameboard.N_row' number of rows in gameboard
@@ -254,10 +261,19 @@ class TDQNAgent:
         # 'self.replay_buffer_size' the number of quadruplets stored in the
         # experience replay buffer
 
+        self.boardstate = encode_boardstate(self.gameboard)
+        self.tile_type = self.gameboard.cur_tile_type
+        self.action = (self.gameboard.tile_x, self.gameboard.tile_orientation) 
+        self.reward_tots = np.zeros(self.episode_count)
+
+        # FIXME: Add some NN shit
+
+
     def fn_load_strategy(self,strategy_file):
         pass
         # TO BE COMPLETED BY STUDENT
         # Here you can load the Q-network (to Q-network of self) from the strategy_file
+
 
     def fn_read_state(self):
         pass
@@ -370,32 +386,3 @@ class TDQNAgent:
                 # Here you should write line(s) to create a variable 'batch'
                 # containing 'self.batch_size' quadruplets 
                 self.fn_reinforce(batch)
-
-
-class THumanAgent:
-    def fn_init(self,gameboard):
-        self.episode=0
-        self.reward_tots=[0]
-        self.gameboard=gameboard
-
-    def fn_read_state(self):
-        pass
-
-    def fn_turn(self,pygame):
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                raise SystemExit(0)
-            if event.type==pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
-                    self.reward_tots=[0]
-                    self.gameboard.fn_restart()
-                if not self.gameboard.gameover:
-                    if event.key == pygame.K_UP:
-                        self.gameboard.fn_move(self.gameboard.tile_x,(self.gameboard.tile_orientation+1)%len(self.gameboard.tiles[self.gameboard.cur_tile_type]))
-                    if event.key == pygame.K_LEFT:
-                        self.gameboard.fn_move(self.gameboard.tile_x-1,self.gameboard.tile_orientation)
-                    if event.key == pygame.K_RIGHT:
-                        self.gameboard.fn_move(self.gameboard.tile_x+1,self.gameboard.tile_orientation)
-                    if (event.key == pygame.K_DOWN) or (event.key == pygame.K_SPACE):
-                        self.reward_tots[self.episode]+=self.gameboard.fn_drop()
