@@ -6,30 +6,30 @@ import copy
 
 import torch
 import torch.nn as nn
-from collections import namedtuple, deque
+import torch.optim as optim
+from collections import deque
 
 from util import encode_boardstate
-
-Transition = namedtuple('Transition',
-                        ('state', 'action', 'next_state', 'reward'))
 
 
 class ReplayMemory(object):
 
     def __init__(self, capacity):
+        self.capacity = capacity
         self.memory = deque([],maxlen=capacity)
 
-    def push(self, *args):
+    def push(self, state):
         """Save a transition"""
-        self.memory.append(Transition(*args))
+        self.memory.append(state)
 
     def sample(self, batch_size):
         return random.sample(self.memory, batch_size)
 
+    def is_full(self):
+        return len(self.memory) == self.capacity
+
     def __len__(self):
         return len(self.memory)
-
-
 
 
 class DQN(nn.Module):
@@ -37,6 +37,8 @@ class DQN(nn.Module):
     def __init__(self, gameboard):
 
         super(DQN, self).__init__()
+
+        self.num_tiles = len(gameboard.tiles)
 
         num_inputs = gameboard.N_row * gameboard.N_col + len(gameboard.tiles)
         num_outputs = gameboard.N_col * 4
@@ -51,17 +53,20 @@ class DQN(nn.Module):
             nn.Linear(20, num_outputs)
         )
 
-    def format_input(self, gameboard):
-        flatten(gameboard.boardstate) + gameboard.cur_tile_type
-        board = np.flatten(gameboard.board)
-        tile_type = np.zeros(len(gameboard.tiles))
-        tile_type[gameboard.cur_tile_type] = 1
-        return torch.tensor(np.append(board, tile_type))
+
+    def format_input(self, board, tile_type):
+        board = np.ndarray.flatten(board)
+        tile_type_one_hot = np.zeros(self.num_tiles)
+        tile_type_one_hot[tile_type] = 1
+        # Using floats here because by default the weights of the network use floats
+        return torch.tensor(np.append(board, tile_type_one_hot), dtype=torch.float)
+
 
     # Called with either one element to determine next action, or a batch
     # during optimization. Returns tensor([[left0exp,right0exp]...]).
-    def forward(self, gameboard):
-        return self.layers(format_input(gameboard))
+    def forward(self, board, tile_type):
+        inputs = self.format_input(board, tile_type)
+        return self.layers(inputs)
 
 
 
@@ -104,7 +109,13 @@ class TDQNAgent:
 
         self.exp_buffer = ReplayMemory(self.replay_buffer_size)
 
+        # Used to calculate the next action
+        # Updated at every change of state
         self.nn_calc = DQN(gameboard)
+
+        # Target network kept constant for long periods of time
+        # Used to evaluate performance
+        # Synchronized to nn_calc every sync_target_episode_count episodes
         self.nn_target = copy.deepcopy(self.nn_calc)
 
 
@@ -133,10 +144,9 @@ class TDQNAgent:
         # should be placed on the game board (integer between 0 and
         # len(self.gameboard.tiles))
 
+
     def fn_select_action(self):
-        pass
-        # TO BE COMPLETED BY STUDENT
-        # This function should be written by you
+
         # Instructions:
         # Choose and execute an action, based on the output of the Q-network for
         # the current state, or random if epsilon greedy
@@ -149,21 +159,24 @@ class TDQNAgent:
         # 'self.epsilon_scale' parameter for the scale of the episode number
         # where epsilon_N changes from unity to epsilon
 
-        # Useful functions
-        # 'self.gameboard.fn_move(tile_x,tile_orientation)' use this function to
-        # execute the selected action
-        # The input argument 'tile_x' contains the column of the tile (0 <=
-        # tile_x < self.gameboard.N_col)
-        # The input argument 'tile_orientation' contains the number of 90 degree
-        # rotations of the tile (0 < tile_orientation < # of non-degenerate
-        # rotations)
-        # The function returns 1 if the action is not valid and 0 otherwise
-        # You can use this function to map out which actions are valid or not
+        actions = self.nn_calc.forward(self.gameboard.board, self.gameboard.cur_tile_type)
+        actions = actions.detach().numpy()
+        
+        while True:
+            max_action_index = np.argmax(actions)
+            tile_position = max_action_index // 4
+            tile_orientation = max_action_index % 4
+            move = self.gameboard.fn_move(tile_position, tile_orientation)
+            if move == 0:
+                self.action = (tile_position, tile_orientation)
+                break
+            else:
+                actions[max_action_index] = np.NINF
 
-    def fn_reinforce(self,batch):
-        pass
-        # TO BE COMPLETED BY STUDENT
-        # This function should be written by you
+        # FIXME Implement the epsilon thingy here as well
+
+
+    def fn_reinforce(self, batch):
         # Instructions:
         # Update the Q network using a batch of quadruplets (old state, last
         # action, last reward, new state)
@@ -178,6 +191,20 @@ class TDQNAgent:
         # Useful variables: 
         # The input argument 'batch' contains a sample of quadruplets used to update the Q-network
 
+        loss = nn.MSELoss()
+        optimizer = optim.Adam(self.nn_calc.parameters())
+
+        for quadruplet in batch:
+
+            old_state, action, reward, new_state = quadruplet
+
+            optimizer.zero_grad()
+            actions = self.nn_calc(self.gameboard)
+            loss = criterion(outputs, labels)
+            loss.backward()
+            optimizer.step()
+            actions = self.nn_calc.forward(self.gameboard).detach().numpy()
+
     def fn_turn(self):
         if self.gameboard.gameover:
             self.episode+=1
@@ -187,41 +214,45 @@ class TDQNAgent:
             if self.episode%1000==0:
                 saveEpisodes=[1000,2000,5000,10000,20000,50000,100000,200000,500000,1000000];
                 if self.episode in saveEpisodes:
-                    pass
-                    # TO BE COMPLETED BY STUDENT
                     # Here you can save the rewards and the Q-network to data files
+                    reward_filename = 'qnn_rewards/' + str(self.episode) + '.npy'
+                    np.save(reward_filename, self.reward_tots)
             if self.episode>=self.episode_count:
                 raise SystemExit(0)
             else:
-                if (len(self.exp_buffer) >= self.replay_buffer_size) and ((self.episode % self.sync_target_episode_count)==0):
-                    pass
-                    # TO BE COMPLETED BY STUDENT
+                buffer_long_enough = len(self.exp_buffer) >= self.replay_buffer_size 
+                sync_target_episode = (self.episode % self.sync_target_episode_count) == 0
+                if buffer_long_enough and sync_target_episode:
                     # Here you should write line(s) to copy the current network to the target network
+                    self.nn_target = copy.deepcopy(self.nn_calc)
                 self.gameboard.fn_restart()
         else:
             # Select and execute action (move the tile to the desired column and orientation)
             self.fn_select_action()
-            # TO BE COMPLETED BY STUDENT
+
             # Here you should write line(s) to copy the old state into the
-            # variable 'old_state' which is later stored in the ecperience
+            # variable 'old_state' which is later stored in the experience
             # replay buffer
+            old_state = (self.gameboard.board, self.gameboard.cur_tile_type)
 
             # Drop the tile on the game board
-            reward=self.gameboard.fn_drop()
+            reward = self.gameboard.fn_drop()
 
-            # TO BE COMPLETED BY STUDENT
             # Here you should write line(s) to add the current reward to the
             # total reward for the current episode, so you can save it to disk
             # later
+            self.reward_tots[self.episode] += reward
 
             # Read the new state
             self.fn_read_state()
 
-            # TO BE COMPLETED BY STUDENT
             # Here you should write line(s) to store the state in the experience replay buffer
+            new_state = (self.gameboard.board, self.gameboard.cur_tile_type)
+            state = (old_state, self.action, reward, new_state)
+            self.exp_buffer.push(state)
 
             if len(self.exp_buffer) >= self.replay_buffer_size:
-                # TO BE COMPLETED BY STUDENT
                 # Here you should write line(s) to create a variable 'batch'
                 # containing 'self.batch_size' quadruplets 
+                batch = self.exp_buffer.sample(self.batch_size)
                 self.fn_reinforce(batch)
