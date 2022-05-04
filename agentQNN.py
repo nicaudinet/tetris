@@ -186,10 +186,12 @@ class TDQNAgent:
         # Then repeat for the target network to calculate the value \hat
         # Q(s_new,a) of the new state (use \hat Q=0 if the new state is
         # terminal)
-        # This function should not return a value, the Q table is stored as an attribute of self
+        # This function should not return a value, the Q table is stored as an
+        # attribute of self
 
         # Useful variables: 
-        # The input argument 'batch' contains a sample of quadruplets used to update the Q-network
+        # The input argument 'batch' contains a sample of quadruplets used to
+        # update the Q-network
 
         loss = nn.MSELoss()
         optimizer = optim.Adam(self.nn_calc.parameters())
@@ -210,7 +212,9 @@ class TDQNAgent:
             self.episode+=1
             if self.episode%100==0:
                 reward = np.sum(self.reward_tots[range(self.episode-100,self.episode)])
-                print('episode '+str(self.episode)+'/'+str(self.episode_count)+' (reward: ',str(reward),')')
+                es = 'episode ' + str(self.episode) + '/' + str(self.episode_count)
+                rs = '(reward: ' + str(reward) + ')'
+                print(es + ' ' + rs)
             if self.episode%1000==0:
                 saveEpisodes=[1000,2000,5000,10000,20000,50000,100000,200000,500000,1000000];
                 if self.episode in saveEpisodes:
@@ -223,11 +227,13 @@ class TDQNAgent:
                 buffer_long_enough = len(self.exp_buffer) >= self.replay_buffer_size 
                 sync_target_episode = (self.episode % self.sync_target_episode_count) == 0
                 if buffer_long_enough and sync_target_episode:
-                    # Here you should write line(s) to copy the current network to the target network
+                    # Here you should write line(s) to copy the current network
+                    # to the target network
                     self.nn_target = copy.deepcopy(self.nn_calc)
                 self.gameboard.fn_restart()
         else:
-            # Select and execute action (move the tile to the desired column and orientation)
+            # Select and execute action (move the tile to the desired column and
+            # orientation)
             self.fn_select_action()
 
             # Here you should write line(s) to copy the old state into the
@@ -246,7 +252,8 @@ class TDQNAgent:
             # Read the new state
             self.fn_read_state()
 
-            # Here you should write line(s) to store the state in the experience replay buffer
+            # Here you should write line(s) to store the state in the experience
+            # replay buffer
             new_state = (self.gameboard.board, self.gameboard.cur_tile_type)
             state = (old_state, self.action, reward, new_state)
             self.exp_buffer.push(state)
