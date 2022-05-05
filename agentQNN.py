@@ -54,19 +54,10 @@ class DQN(nn.Module):
         )
 
 
-    def format_input(self, board, tile_type):
-        board = np.ndarray.flatten(board)
-        tile_type_one_hot = np.zeros(self.num_tiles)
-        tile_type_one_hot[tile_type] = 1
-        # Using floats here because by default the weights of the network use floats
-        return torch.tensor(np.append(board, tile_type_one_hot), dtype=torch.float)
-
-
     # Called with either one element to determine next action, or a batch
     # during optimization. Returns tensor([[left0exp,right0exp]...]).
-    def forward(self, board, tile_type):
-        inputs = self.format_input(board, tile_type)
-        return self.layers(inputs)
+    def forward(self, state):
+        return self.layers(state)
 
 
 
@@ -85,95 +76,82 @@ class TDQNAgent:
         self.episode_count=episode_count
 
 
-    # Instructions:
-    # In this function you could set up and initialize the states, actions,
-    # the Q-networks (one for calculating actions and one target network),
-    # experience replay buffer and storage for the rewards
-    # You can use any framework for constructing the networks, for example
-    # pytorch or tensorflow
-    # This function should not return a value, store Q network etc as attributes of self
+    # Set up and initialize the states, actions, the Q-networks, experience
+    # replay buffer and storage for the rewards
     def fn_init(self,gameboard):
         self.gameboard=gameboard
 
-        # Useful variables: 
-        # 'gameboard.N_row' number of rows in gameboard
-        # 'gameboard.N_col' number of columns in gameboard
-        # 'len(gameboard.tiles)' number of different tiles
-        # 'self.alpha' the learning rate for stochastic gradient descent
-        # 'self.episode_count' the total number of episodes in the training
-        # 'self.replay_buffer_size' the number of quadruplets stored in the
-        # experience replay buffer
-
         self.action = (self.gameboard.tile_x, self.gameboard.tile_orientation) 
+
         self.reward_tots = np.zeros(self.episode_count)
 
         self.exp_buffer = ReplayMemory(self.replay_buffer_size)
 
-        # Used to calculate the next action
-        # Updated at every change of state
+        # Find all possible actions
+        possible_actions = {}
+        for tile_idx, tile in enumerate(self.gameboard.tiles):
+            tile_actions = {}
+            for orientation in range(len(tile)):
+                num_positions = self.gameboard.N_col + 1 - len(tile[orientation])
+                tile_actions[orientation] = num_positions
+            possible_actions[tile_idx] = tile_actions
+        self.possible_actions = possible_actions
+
+        # Neural Network initailizations
         self.nn_calc = DQN(gameboard)
-
-        # Target network kept constant for long periods of time
-        # Used to evaluate performance
-        # Synchronized to nn_calc every sync_target_episode_count episodes
         self.nn_target = copy.deepcopy(self.nn_calc)
+        self.optimizer = optim.Adam(self.nn_calc.parameters())
+        self.criterion = nn.MSELoss()
 
 
+    # Load the Q-network (to Q-network of self) from the strategy_file
     def fn_load_strategy(self,strategy_file):
         pass
-        # TO BE COMPLETED BY STUDENT
-        # Here you can load the Q-network (to Q-network of self) from the strategy_file
 
 
+    # Calculate the current state of the gane board
     def fn_read_state(self):
-        pass
-        # TO BE COMPLETED BY STUDENT
-        # This function should be written by you
-        # Instructions:
-        # In this function you could calculate the current state of the gane board
-        # You can for example represent the state as a copy of the game board
-        # and the identifier of the current tile
-        # This function should not return a value, store the state as an attribute of self
-
-        # Useful variables: 
-        # 'self.gameboard.N_row' number of rows in gameboard
-        # 'self.gameboard.N_col' number of columns in gameboard
-        # 'self.gameboard.board[index_row,index_col]' table indicating if row
-        # 'index_row' and column 'index_col' is occupied (+1) or free (-1)
-        # 'self.gameboard.cur_tile_type' identifier of the current tile that
-        # should be placed on the game board (integer between 0 and
-        # len(self.gameboard.tiles))
+        self.board = self.gameboard.board.flatten()
+        self.tile_type = self.gameboard.cur_tile_type
+        num_tiles = len(self.gameboard.tiles)
+        tile = np.zeros(num_tiles)
+        tile[self.tile_type] = 1
+        self.state = torch.tensor(np.hstack([self.board, tile]), dtype=torch.float)
 
 
+    # Choose and execute an action, based on the output of the Q-network for
+    # the current state, or random if epsilon greedy
     def fn_select_action(self):
-
-        # Instructions:
-        # Choose and execute an action, based on the output of the Q-network for
-        # the current state, or random if epsilon greedy
-        # This function should not return a value, store the action as an
-        # attribute of self and exectute the action by moving the tile to the
-        # desired position and orientation
 
         # Useful variables: 
         # 'self.epsilon' parameter epsilon in epsilon-greedy policy
         # 'self.epsilon_scale' parameter for the scale of the episode number
         # where epsilon_N changes from unity to epsilon
 
-        actions = self.nn_calc.forward(self.gameboard.board, self.gameboard.cur_tile_type)
-        actions = actions.detach().numpy()
-        
-        while True:
-            max_action_index = np.argmax(actions)
-            tile_position = max_action_index // 4
-            tile_orientation = max_action_index % 4
-            move = self.gameboard.fn_move(tile_position, tile_orientation)
-            if move == 0:
-                self.action = (tile_position, tile_orientation)
-                break
-            else:
-                actions[max_action_index] = np.NINF
+        curr_e_scale = 1 - self.episode / self.epsilon_scale
+        curr_e = np.max([self.epsilon, curr_e_scale])
 
-        # FIXME Implement the epsilon thingy here as well
+        tile_actions = self.possible_actions[self.tile_type]
+        if np.random.rand() < curr_e:
+            # Choose random move
+            tile_orientation = np.random.randint(0, len(tile_actions))
+            tile_position = np.random.randint(0, tile_actions[tile_orientation])
+            self.action = (tile_position, tile_orientation)
+            self.gameboard.fn_move(tile_position, tile_orientation)
+        else:
+            # Choose the move with the highest expected reward
+            with torch.no_grad():
+                output = self.nn_calc(self.state).detach().numpy()
+            while True:
+                max_action_index = np.argmax(output)
+                tile_position = max_action_index // self.gameboard.N_col
+                tile_orientation = max_action_index % self.gameboard.N_col
+                move = self.gameboard.fn_move(tile_position, tile_orientation)
+                if move == 0:
+                    self.action = (tile_position, tile_orientation)
+                    break
+                else:
+                    output[max_action_index] = np.NINF
 
 
     def fn_reinforce(self, batch):
@@ -194,11 +172,16 @@ class TDQNAgent:
         # update the Q-network
 
         loss = nn.MSELoss()
-        optimizer = optim.Adam(self.nn_calc.parameters())
 
         for quadruplet in batch:
 
             old_state, action, reward, new_state = quadruplet
+
+            # Get expected rewards for current network
+            board = self.gameboard.board
+            tile_type = self.gameboard.cur_tile_type
+            expected_rewards = self.nn_calc.forward(board, tile_type)
+            expected_rewards = expected_rewards.detach().numpy()
 
             optimizer.zero_grad()
             actions = self.nn_calc(self.gameboard)
