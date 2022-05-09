@@ -32,6 +32,7 @@ class ReplayMemory(object):
         return len(self.memory)
 
 
+# Neural network definition
 class DQN(nn.Module):
 
     def __init__(self, gameboard):
@@ -41,16 +42,15 @@ class DQN(nn.Module):
         self.num_tiles = len(gameboard.tiles)
 
         num_inputs = gameboard.N_row * gameboard.N_col + len(gameboard.tiles)
+        num_hidden = 64
         num_outputs = gameboard.N_col * 4
 
         self.layers = nn.Sequential(
-            nn.Linear(num_inputs, 20),
+            nn.Linear(num_inputs, num_hidden),
             nn.ReLU(),
-            nn.Linear(20, 20),
+            nn.Linear(num_hidden, num_hidden),
             nn.ReLU(),
-            nn.Linear(20, 20),
-            nn.ReLU(),
-            nn.Linear(20, num_outputs)
+            nn.Linear(num_hidden, num_outputs)
         )
 
 
@@ -81,10 +81,12 @@ class TDQNAgent:
     def fn_init(self,gameboard):
         self.gameboard=gameboard
 
+        self.num_tiles = len(gameboard.tiles)
+        self.state_size = gameboard.N_row * gameboard.N_col + self.num_tiles
+
         self.action = (self.gameboard.tile_x, self.gameboard.tile_orientation) 
-
         self.reward_tots = np.zeros(self.episode_count)
-
+        self.losses = []
         self.exp_buffer = ReplayMemory(self.replay_buffer_size)
 
         # Find all possible actions
@@ -100,7 +102,7 @@ class TDQNAgent:
         # Neural Network initailizations
         self.nn_calc = DQN(gameboard)
         self.nn_target = copy.deepcopy(self.nn_calc)
-        self.optimizer = optim.Adam(self.nn_calc.parameters())
+        self.optimizer = optim.Adam(self.nn_calc.parameters(), lr = self.alpha)
         self.criterion = nn.MSELoss()
 
 
@@ -113,8 +115,7 @@ class TDQNAgent:
     def fn_read_state(self):
         self.board = self.gameboard.board.flatten()
         self.tile_type = self.gameboard.cur_tile_type
-        num_tiles = len(self.gameboard.tiles)
-        tile = np.zeros(num_tiles)
+        tile = np.zeros(self.num_tiles)
         tile[self.tile_type] = 1
         self.state = torch.tensor(np.hstack([self.board, tile]), dtype=torch.float)
 
@@ -123,17 +124,12 @@ class TDQNAgent:
     # the current state, or random if epsilon greedy
     def fn_select_action(self):
 
-        # Useful variables: 
-        # 'self.epsilon' parameter epsilon in epsilon-greedy policy
-        # 'self.epsilon_scale' parameter for the scale of the episode number
-        # where epsilon_N changes from unity to epsilon
+        # Calculate current epsilon
+        curr_e = np.max([self.epsilon, 1 - self.episode / self.epsilon_scale])
 
-        curr_e_scale = 1 - self.episode / self.epsilon_scale
-        curr_e = np.max([self.epsilon, curr_e_scale])
-
-        tile_actions = self.possible_actions[self.tile_type]
         if np.random.rand() < curr_e:
             # Choose random move
+            tile_actions = self.possible_actions[self.tile_type]
             tile_orientation = np.random.randint(0, len(tile_actions))
             tile_position = np.random.randint(0, tile_actions[tile_orientation])
             self.action = (tile_position, tile_orientation)
@@ -142,53 +138,47 @@ class TDQNAgent:
             # Choose the move with the highest expected reward
             with torch.no_grad():
                 output = self.nn_calc(self.state).detach().numpy()
-            while True:
-                max_action_index = np.argmax(output)
-                tile_position = max_action_index // self.gameboard.N_col
-                tile_orientation = max_action_index % self.gameboard.N_col
+            for max_index in np.flip(np.argsort(output)):
+                tile_position = max_index // self.gameboard.N_col
+                tile_orientation = max_index % self.gameboard.N_col
                 move = self.gameboard.fn_move(tile_position, tile_orientation)
                 if move == 0:
                     self.action = (tile_position, tile_orientation)
                     break
-                else:
-                    output[max_action_index] = np.NINF
 
 
+    # Update the Q network using a batch of quadruplets (old state, last action,
+    # last reward, new state)
     def fn_reinforce(self, batch):
-        # Instructions:
-        # Update the Q network using a batch of quadruplets (old state, last
-        # action, last reward, new state)
-        # Calculate the loss function by first, for each old state, use the
-        # Q-network to calculate the values Q(s_old,a), i.e. the estimate of the
-        # future reward for all actions a
-        # Then repeat for the target network to calculate the value \hat
-        # Q(s_new,a) of the new state (use \hat Q=0 if the new state is
-        # terminal)
-        # This function should not return a value, the Q table is stored as an
-        # attribute of self
 
-        # Useful variables: 
-        # The input argument 'batch' contains a sample of quadruplets used to
-        # update the Q-network
+        # Create batch arrays
+        old_states = torch.Tensor(self.batch_size, self.state_size)
+        new_states = torch.Tensor(self.batch_size, self.state_size)
+        for i, entry in enumerate(batch):
+            old_states[i] = entry['old_state']
+            new_states[i] = entry['new_state']
 
-        loss = nn.MSELoss()
+        # Calculate outputs for both networks
+        self.optimizer.zero_grad()
+        outputs = self.nn_calc(old_states)
+        target_outputs = self.nn_target(new_states)
 
-        for quadruplet in batch:
+        # Create the labels
+        labels = torch.clone(outputs)
+        for i, entry in enumerate(batch):
+            action = entry['action']
+            reward_pos = action[0] * self.gameboard.N_col + action[1]
+            if entry['gameover']:
+                labels[i][reward_pos] = entry['reward']
+            else:
+                max_expected_reward = torch.max(target_outputs[i])
+                labels[i][reward_pos] = entry['reward'] + max_expected_reward
 
-            old_state, action, reward, new_state = quadruplet
+        # Train the network
+        loss = self.criterion(outputs, labels)
+        loss.backward()
+        self.optimizer.step()
 
-            # Get expected rewards for current network
-            board = self.gameboard.board
-            tile_type = self.gameboard.cur_tile_type
-            expected_rewards = self.nn_calc.forward(board, tile_type)
-            expected_rewards = expected_rewards.detach().numpy()
-
-            optimizer.zero_grad()
-            actions = self.nn_calc(self.gameboard)
-            loss = criterion(outputs, labels)
-            loss.backward()
-            optimizer.step()
-            actions = self.nn_calc.forward(self.gameboard).detach().numpy()
 
     def fn_turn(self):
         if self.gameboard.gameover:
@@ -222,7 +212,7 @@ class TDQNAgent:
             # Here you should write line(s) to copy the old state into the
             # variable 'old_state' which is later stored in the experience
             # replay buffer
-            old_state = (self.gameboard.board, self.gameboard.cur_tile_type)
+            old_state = copy.copy(self.state)
 
             # Drop the tile on the game board
             reward = self.gameboard.fn_drop()
@@ -237,11 +227,16 @@ class TDQNAgent:
 
             # Here you should write line(s) to store the state in the experience
             # replay buffer
-            new_state = (self.gameboard.board, self.gameboard.cur_tile_type)
-            state = (old_state, self.action, reward, new_state)
-            self.exp_buffer.push(state)
+            training_info = {
+                    'old_state': old_state,
+                    'new_state': copy.copy(self.state),
+                    'action': copy.copy(self.action),
+                    'reward': copy.copy(reward),
+                    'gameover': copy.copy(self.gameboard.gameover)
+                    }
+            self.exp_buffer.push(training_info)
 
-            if len(self.exp_buffer) >= self.replay_buffer_size:
+            if self.exp_buffer.is_full():
                 # Here you should write line(s) to create a variable 'batch'
                 # containing 'self.batch_size' quadruplets 
                 batch = self.exp_buffer.sample(self.batch_size)
