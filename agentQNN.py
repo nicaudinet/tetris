@@ -160,19 +160,21 @@ class TDQNAgent:
 
         # Calculate outputs for both networks
         self.optimizer.zero_grad()
-        outputs = self.nn_calc(old_states)
+        calc_outputs = self.nn_calc(old_states)
         target_outputs = self.nn_target(new_states)
 
         # Create the labels
-        labels = torch.clone(outputs)
+        outputs = torch.Tensor(self.batch_size, 1)
+        labels = torch.Tensor(self.batch_size, 1)
         for i, entry in enumerate(batch):
             action = entry['action']
             reward_pos = action[0] * self.gameboard.N_col + action[1]
+            outputs[i] = calc_outputs[i][reward_pos]
             if entry['gameover']:
-                labels[i][reward_pos] = entry['reward']
+                labels[i] = entry['reward']
             else:
                 max_expected_reward = torch.max(target_outputs[i])
-                labels[i][reward_pos] = entry['reward'] + max_expected_reward
+                labels[i] = entry['reward'] + max_expected_reward
 
         # Train the network
         loss = self.criterion(outputs, labels)
@@ -181,8 +183,22 @@ class TDQNAgent:
 
 
     def fn_turn(self):
+
         if self.gameboard.gameover:
+
+            # Update the target network
             self.episode+=1
+            if self.episode>=self.episode_count:
+                raise SystemExit(0)
+            else:
+                sync_target_episode = (self.episode % self.sync_target_episode_count) == 0
+                if self.exp_buffer.is_full() and sync_target_episode:
+                    # Here you should write line(s) to copy the current network
+                    # to the target network
+                    self.nn_target = copy.deepcopy(self.nn_calc)
+                self.gameboard.fn_restart()
+
+            # Print some information
             if self.episode%100==0:
                 reward = np.sum(self.reward_tots[range(self.episode-100,self.episode)])
                 es = 'episode ' + str(self.episode) + '/' + str(self.episode_count)
@@ -194,16 +210,7 @@ class TDQNAgent:
                     # Here you can save the rewards and the Q-network to data files
                     reward_filename = 'qnn_rewards/' + str(self.episode) + '.npy'
                     np.save(reward_filename, self.reward_tots)
-            if self.episode>=self.episode_count:
-                raise SystemExit(0)
-            else:
-                buffer_long_enough = len(self.exp_buffer) >= self.replay_buffer_size 
-                sync_target_episode = (self.episode % self.sync_target_episode_count) == 0
-                if buffer_long_enough and sync_target_episode:
-                    # Here you should write line(s) to copy the current network
-                    # to the target network
-                    self.nn_target = copy.deepcopy(self.nn_calc)
-                self.gameboard.fn_restart()
+
         else:
             # Select and execute action (move the tile to the desired column and
             # orientation)
