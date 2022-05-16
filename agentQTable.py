@@ -179,8 +179,8 @@ class TQAgent:
                     # Here you can save the rewards and the Q-table to data
                     # files for plotting of the rewards and the Q-table can be
                     # used to test how the agent plays
-                    np.save('rewards.npy', self.reward_tots)
-                    np.save('qtable.npy', self.qtable)
+                    np.save('outputs/1c/rewards.npy', self.reward_tots)
+                    np.save('outputs/1c/qtable.npy', self.qtable)
             if self.episode >= self.episode_count:
                 raise SystemExit(0)
             else:

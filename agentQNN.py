@@ -204,12 +204,10 @@ class TDQNAgent:
                 es = 'episode ' + str(self.episode) + '/' + str(self.episode_count)
                 rs = '(reward: ' + str(reward) + ')'
                 print(es + ' ' + rs)
-            if self.episode%1000==0:
-                saveEpisodes=[1000,2000,5000,10000,20000,50000,100000,200000,500000,1000000];
-                if self.episode in saveEpisodes:
-                    # Here you can save the rewards and the Q-network to data files
-                    reward_filename = 'qnn_rewards/' + str(self.episode) + '.npy'
-                    np.save(reward_filename, self.reward_tots)
+            if self.episode % 10 == 0:
+                # Here you can save the rewards and the Q-network to data files
+                reward_filename = 'outputs/2a/rewards.npy'
+                np.save(reward_filename, self.reward_tots)
 
         else:
             # Select and execute action (move the tile to the desired column and
